@@ -50,18 +50,26 @@ public class Main {
 		//get input from user
 		MavenLibrary library = null;
 		Path source = null;
-		String answer = console.readLine("Enter Maven ID or path to source ZIP/JAR/folder: ").trim();
-		try {
-			library = MavenLibrary.parse(answer);
-		} catch (IllegalArgumentException e) {
-			source = Paths.get(answer);
-			if (!Files.exists(source)) {
-				console.printf("File/folder does not exist: " + source);
-				return;
+		while (true) {
+			String answer = console.readLine("Enter Maven ID or path to source ZIP/JAR/folder: ").trim();
+			if (answer.isEmpty()) {
+				continue;
 			}
+
+			try {
+				library = MavenLibrary.parse(answer);
+			} catch (IllegalArgumentException e) {
+				source = Paths.get(answer);
+				if (!Files.exists(source)) {
+					console.printf("File or folder does not exist: " + source + "%n");
+					continue;
+				}
+			}
+			break;
 		}
-		String libraryName = readLibraryName(library.getArtifactId());
-		String libraryVersion = readLibraryVersion(library.getVersion());
+
+		String libraryName = readLibraryName((library == null) ? null : library.getArtifactId());
+		String libraryVersion = readLibraryVersion((library == null) ? null : library.getVersion());
 		String libraryJavadocUrl = readLibraryJavadocUrl();
 		String libraryWebsite = readLibraryWebsite();
 		boolean prettyPrint = readPrettyPrint();
@@ -226,13 +234,35 @@ public class Main {
 	}
 
 	private static String readLibraryName(String defaultValue) {
-		String answer = console.readLine("Library name [" + defaultValue + "]: ").trim();
-		return answer.isEmpty() ? defaultValue : answer;
+		return readLineDefault("Library name", defaultValue);
 	}
 
 	private static String readLibraryVersion(String defaultValue) {
-		String answer = console.readLine("Library version [" + defaultValue + "]: ").trim();
-		return answer.isEmpty() ? defaultValue : answer;
+		return readLineDefault("Library version", defaultValue);
+	}
+
+	private static String readLineDefault(String message, String defaultValue) {
+		StringBuilder sb = new StringBuilder(message);
+		if (defaultValue != null) {
+			sb.append(" [").append(defaultValue).append(']');
+		}
+		sb.append(": ");
+		message = sb.toString();
+
+		while (true) {
+			String answer = console.readLine(message).trim();
+			if (answer.contains(" ") || answer.contains("\t")) {
+				console.printf("Value cannot contain whitespace.%n");
+				continue;
+			}
+
+			if (!answer.isEmpty()) {
+				return answer;
+			}
+			if (defaultValue != null) {
+				return defaultValue;
+			}
+		}
 	}
 
 	private static String readLibraryJavadocUrl() {
@@ -336,7 +366,7 @@ public class Main {
 
 			int size = connection.getContentLength();
 			int downloaded = 0;
-			byte buffer[] = new byte[4092];
+			byte buffer[] = new byte[1024 * 16];
 			try (OutputStream out = Files.newOutputStream(destination)) {
 				int read;
 				while ((read = in.read(buffer)) != -1) {
