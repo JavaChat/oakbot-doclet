@@ -31,7 +31,7 @@ import oakbot.doclet.OakbotDoclet;
  * Maven Central.
  * @author Michael Angstadt
  */
-public class JavadocZipFromMaven {
+public class Main {
 	private static final Console console = System.console();
 	private static Path tempDir;
 	private static boolean verbose = false;
@@ -48,23 +48,40 @@ public class JavadocZipFromMaven {
 		console.printf("Welcome to the OakBot Javadoc Generator.%n");
 
 		//get input from user
-		MavenLibrary library = readLibrary();
+		MavenLibrary library = null;
+		Path source = null;
+		String answer = console.readLine("Enter Maven ID or path to source ZIP/JAR/folder: ").trim();
+		try {
+			library = MavenLibrary.parse(answer);
+		} catch (IllegalArgumentException e) {
+			source = Paths.get(answer);
+			if (!Files.exists(source)) {
+				console.printf("File/folder does not exist: " + source);
+				return;
+			}
+		}
 		String libraryName = readLibraryName(library.getArtifactId());
 		String libraryVersion = readLibraryVersion(library.getVersion());
 		String libraryJavadocUrl = readLibraryJavadocUrl();
 		String libraryWebsite = readLibraryWebsite();
 		boolean prettyPrint = readPrettyPrint();
-		if (!confirmSettings(javadocExe, library, libraryName, libraryVersion, libraryJavadocUrl, libraryWebsite, prettyPrint)) {
+		if (!confirmSettings(javadocExe, library, source, libraryName, libraryVersion, libraryJavadocUrl, libraryWebsite, prettyPrint)) {
 			return;
 		}
 
 		tempDir = Files.createTempDirectory("oakbot.doclet");
 
 		try {
-			Path sourceJar = downloadSource(library);
-			downloadPom(library);
-			List<Path> dependencyJars = downloadDependencies();
-			Path sourceDir = unzipSource(sourceJar);
+			List<Path> dependencyJars;
+			if (source == null) {
+				source = downloadSource(library);
+				downloadPom(library);
+				dependencyJars = downloadDependencies();
+			} else {
+				dependencyJars = new ArrayList<>(0);
+			}
+
+			Path sourceDir = Files.isDirectory(source) ? source : unzipSource(source);
 
 			List<String> commands = buildJavadocArgs(javadocExe, dependencyJars, sourceDir, libraryName, libraryVersion, libraryJavadocUrl, libraryWebsite, prettyPrint);
 			runJavadoc(commands);
@@ -192,11 +209,6 @@ public class JavadocZipFromMaven {
 		return dest;
 	}
 
-	private static MavenLibrary readLibrary() {
-		String answer = console.readLine("Maven ID: (e.g. \"com.googlecode.ez-vcard:ez-vcard:0.9.6\"): ").trim();
-		return MavenLibrary.parse(answer);
-	}
-
 	private static String getJavadocExe() {
 		String javaHomeEnv = System.getenv("JAVA_HOME");
 		if (javaHomeEnv == null) {
@@ -236,10 +248,15 @@ public class JavadocZipFromMaven {
 		return "y".equalsIgnoreCase(answer);
 	}
 
-	private static boolean confirmSettings(String javadocExe, MavenLibrary library, String libraryName, String libraryVersion, String libraryJavadocUrl, String libraryWebsite, boolean prettyPrint) throws IOException {
+	private static boolean confirmSettings(String javadocExe, MavenLibrary library, Path source, String libraryName, String libraryVersion, String libraryJavadocUrl, String libraryWebsite, boolean prettyPrint) throws IOException {
 		console.printf("=============Confirmation=============%n");
 		console.printf("Javadoc executable: " + javadocExe + "%n");
-		console.printf("Maven ID: " + library + "%n");
+		if (library != null) {
+			console.printf("Maven ID: " + library + "%n");
+		}
+		if (source != null) {
+			console.printf("Source: " + source + "%n");
+		}
 		console.printf("Library name: " + libraryName + "%n");
 		console.printf("Library version: " + libraryVersion + "%n");
 		console.printf("Library's base javadoc URL: " + libraryJavadocUrl + "%n");

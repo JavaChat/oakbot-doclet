@@ -44,7 +44,7 @@
 				<configuration>
 					<archive>
 						<manifest>
-							<mainClass>oakbot.doclet.cli.JavadocZipFromMaven</mainClass>
+							<mainClass>oakbot.doclet.cli.Main</mainClass>
 						</manifest>
 					</archive>
 					<descriptorRefs>
