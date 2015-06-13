@@ -15,6 +15,7 @@ public class ConfigProperties extends PropertiesWrapper {
 	private static final String LIBRARY_NAME = "oakbot.doclet.library.name";
 	private static final String LIBRARY_VERSION = "oakbot.doclet.library.version";
 	private static final String LIBRARY_BASEURL = "oakbot.doclet.library.baseUrl";
+	private static final String LIBRARY_JAVADOC_URL_PATTERN = "oakbot.doclet.library.javadocUrlPattern";
 	private static final String LIBRARY_PROJECT_URL = "oakbot.doclet.library.projectUrl";
 
 	public ConfigProperties() {
@@ -65,6 +66,14 @@ public class ConfigProperties extends PropertiesWrapper {
 		set(LIBRARY_BASEURL, baseUrl);
 	}
 
+	public String getLibraryJavadocUrlPattern() {
+		return get(LIBRARY_JAVADOC_URL_PATTERN);
+	}
+
+	public void setLibraryJavadocUrlPattern(String javadocUrlPattern) {
+		set(LIBRARY_JAVADOC_URL_PATTERN, javadocUrlPattern);
+	}
+
 	public String getProjectUrl() {
 		return get(LIBRARY_PROJECT_URL);
 	}
@@ -72,4 +81,5 @@ public class ConfigProperties extends PropertiesWrapper {
 	public void setProjectUrl(String url) {
 		set(LIBRARY_PROJECT_URL, url);
 	}
+
 }

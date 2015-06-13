@@ -28,13 +28,14 @@ import com.sun.javadoc.Type;
  * @author Michael Angstadt
  */
 public class RootDocXmlProcessor {
-	private final String libraryName, libraryVersion, baseJavadocUrl, projectUrl;
+	private final String libraryName, libraryVersion, baseJavadocUrl, javadocUrlPattern, projectUrl;
 	private final Listener listener;
 
 	private RootDocXmlProcessor(Builder builder) {
 		libraryName = builder.libraryName;
 		libraryVersion = builder.libraryVersion;
 		baseJavadocUrl = builder.baseJavadocUrl;
+		javadocUrlPattern = builder.javadocUrlPattern;
 		projectUrl = builder.projectUrl;
 		listener = builder.listener;
 	}
@@ -64,6 +65,7 @@ public class RootDocXmlProcessor {
 		element.setAttribute("name", libraryName);
 		element.setAttribute("version", libraryVersion);
 		element.setAttribute("baseUrl", baseJavadocUrl);
+		element.setAttribute("javadocUrlPattern", javadocUrlPattern);
 		element.setAttribute("projectUrl", projectUrl);
 		document.appendChild(element);
 
@@ -394,7 +396,7 @@ public class RootDocXmlProcessor {
 	}
 
 	public static class Builder {
-		private String libraryName, libraryVersion, baseJavadocUrl, projectUrl;
+		private String libraryName, libraryVersion, baseJavadocUrl, javadocUrlPattern, projectUrl;
 		private Listener listener;
 
 		/**
@@ -424,6 +426,11 @@ public class RootDocXmlProcessor {
 				baseJavadocUrl += "/";
 			}
 			this.baseJavadocUrl = baseJavadocUrl;
+			return this;
+		}
+
+		public Builder javadocUrlPattern(String javadocUrlPattern) {
+			this.javadocUrlPattern = javadocUrlPattern;
 			return this;
 		}
 

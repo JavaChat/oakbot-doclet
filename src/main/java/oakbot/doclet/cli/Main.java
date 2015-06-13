@@ -71,9 +71,10 @@ public class Main {
 		String libraryName = readLibraryName((library == null) ? null : library.getArtifactId());
 		String libraryVersion = readLibraryVersion((library == null) ? null : library.getVersion());
 		String libraryJavadocUrl = readLibraryJavadocUrl();
+		String libraryJavadocUrlPattern = readLibraryJavadocUrlPattern();
 		String libraryWebsite = readLibraryWebsite();
 		boolean prettyPrint = readPrettyPrint();
-		if (!confirmSettings(javadocExe, library, source, libraryName, libraryVersion, libraryJavadocUrl, libraryWebsite, prettyPrint)) {
+		if (!confirmSettings(javadocExe, library, source, libraryName, libraryVersion, libraryJavadocUrl, libraryJavadocUrlPattern, libraryWebsite, prettyPrint)) {
 			return;
 		}
 
@@ -91,7 +92,7 @@ public class Main {
 
 			Path sourceDir = Files.isDirectory(source) ? source : unzipSource(source);
 
-			List<String> commands = buildJavadocArgs(javadocExe, dependencyJars, sourceDir, libraryName, libraryVersion, libraryJavadocUrl, libraryWebsite, prettyPrint);
+			List<String> commands = buildJavadocArgs(javadocExe, dependencyJars, sourceDir, libraryName, libraryVersion, libraryJavadocUrl, libraryJavadocUrlPattern, libraryWebsite, prettyPrint);
 			runJavadoc(commands);
 		} finally {
 			deleteTempDir();
@@ -104,7 +105,7 @@ public class Main {
 		console.printf("done.%n");
 	}
 
-	private static List<String> buildJavadocArgs(String javadocExe, List<Path> dependencies, Path source, String name, String version, String javadocUrl, String website, boolean prettyPrint) throws IOException {
+	private static List<String> buildJavadocArgs(String javadocExe, List<Path> dependencies, Path source, String name, String version, String javadocUrl, String javadocUrlPattern, String website, boolean prettyPrint) throws IOException {
 		List<String> commands = new ArrayList<>();
 		commands.add(javadocExe);
 
@@ -137,6 +138,9 @@ public class Main {
 		config.setLibraryVersion(version);
 		if (!javadocUrl.isEmpty()) {
 			config.setLibraryBaseUrl(javadocUrl);
+		}
+		if (!javadocUrlPattern.isEmpty()) {
+			config.setLibraryJavadocUrlPattern(javadocUrlPattern);
 		}
 		if (!website.isEmpty()) {
 			config.setProjectUrl(website);
@@ -269,6 +273,10 @@ public class Main {
 		return console.readLine("Library's base javadoc URL (optional): ").trim();
 	}
 
+	private static String readLibraryJavadocUrlPattern() {
+		return console.readLine("Library's javadoc URL pattern (optional): ").trim();
+	}
+
 	private static String readLibraryWebsite() {
 		return console.readLine("Library's website (optional): ").trim();
 	}
@@ -278,7 +286,7 @@ public class Main {
 		return "y".equalsIgnoreCase(answer);
 	}
 
-	private static boolean confirmSettings(String javadocExe, MavenLibrary library, Path source, String libraryName, String libraryVersion, String libraryJavadocUrl, String libraryWebsite, boolean prettyPrint) throws IOException {
+	private static boolean confirmSettings(String javadocExe, MavenLibrary library, Path source, String libraryName, String libraryVersion, String libraryJavadocUrl, String libraryJavadocUrlPattern, String libraryWebsite, boolean prettyPrint) throws IOException {
 		console.printf("=============Confirmation=============%n");
 		console.printf("Javadoc executable: " + javadocExe + "%n");
 		if (library != null) {
@@ -287,10 +295,11 @@ public class Main {
 		if (source != null) {
 			console.printf("Source: " + source + "%n");
 		}
-		console.printf("Library name: " + libraryName + "%n");
-		console.printf("Library version: " + libraryVersion + "%n");
-		console.printf("Library's base javadoc URL: " + libraryJavadocUrl + "%n");
-		console.printf("Library website: " + libraryWebsite + "%n");
+		console.printf("Library Name: " + libraryName + "%n");
+		console.printf("Version: " + libraryVersion + "%n");
+		console.printf("Base javadoc URL: " + libraryJavadocUrl + "%n");
+		console.printf("Javadoc URL pattern: " + libraryJavadocUrlPattern + "%n");
+		console.printf("Website: " + libraryWebsite + "%n");
 		console.printf("Pretty print XML: " + prettyPrint + "%n");
 
 		String answer = console.readLine("Proceed? [Y/n] ");

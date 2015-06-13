@@ -48,6 +48,8 @@ public class OakbotDoclet {
 		builder.projectUrl(properties.getProjectUrl());
 
 		builder.baseJavadocUrl(properties.getLibraryBaseUrl());
+		
+		builder.javadocUrlPattern(properties.getLibraryJavadocUrlPattern());
 
 		boolean prettyPrint = properties.isPrettyPrint();
 
