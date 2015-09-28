@@ -17,6 +17,7 @@ import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.zip.ZipEntry;
@@ -38,44 +39,81 @@ public class Main {
 
 	public static void main(String args[]) throws Exception {
 		Arguments arguments = new Arguments(args);
+		if (arguments.help()) {
+			arguments.printHelp();
+			return;
+		}
+
 		verbose = arguments.verbose();
 
 		String javadocExe = getJavadocExe();
-		if (javadocExe == null) {
-			return;
-		}
 
-		console.printf("Welcome to the OakBot Javadoc Generator.%n");
-
-		//get input from user
+		String libraryName, libraryVersion, libraryJavadocUrl, libraryJavadocUrlPattern, libraryWebsite, excludePackages;
+		boolean prettyPrint;
 		MavenLibrary library = null;
 		Path source = null;
-		while (true) {
-			String answer = console.readLine("Enter Maven ID or path to source ZIP/JAR/folder: ").trim();
-			if (answer.isEmpty()) {
-				continue;
-			}
-
-			try {
-				library = MavenLibrary.parse(answer);
-			} catch (IllegalArgumentException e) {
-				source = Paths.get(answer);
-				if (!Files.exists(source)) {
-					console.printf("File or folder does not exist: " + source + "%n");
+		if (arguments.interactive()) {
+			console.printf("Welcome to the OakBot Javadoc Generator.%n");
+			while (true) {
+				String answer = console.readLine("Enter Maven ID or path to source ZIP/JAR/folder: ").trim();
+				if (answer.isEmpty()) {
 					continue;
 				}
-			}
-			break;
-		}
 
-		String libraryName = readLibraryName((library == null) ? null : library.getArtifactId());
-		String libraryVersion = readLibraryVersion((library == null) ? null : library.getVersion());
-		String libraryJavadocUrl = readLibraryJavadocUrl();
-		String libraryJavadocUrlPattern = readLibraryJavadocUrlPattern();
-		String libraryWebsite = readLibraryWebsite();
-		boolean prettyPrint = readPrettyPrint();
-		if (!confirmSettings(javadocExe, library, source, libraryName, libraryVersion, libraryJavadocUrl, libraryJavadocUrlPattern, libraryWebsite, prettyPrint)) {
-			return;
+				try {
+					library = MavenLibrary.parse(answer);
+				} catch (IllegalArgumentException e) {
+					source = Paths.get(answer);
+					if (!Files.exists(source)) {
+						console.printf("File or folder does not exist: " + source + "%n");
+						continue;
+					}
+				}
+				break;
+			}
+
+			libraryName = readLibraryName((library == null) ? null : library.getArtifactId());
+			libraryVersion = readLibraryVersion((library == null) ? null : library.getVersion());
+			libraryJavadocUrl = readLibraryJavadocUrl();
+			libraryJavadocUrlPattern = readLibraryJavadocUrlPattern();
+			libraryWebsite = readLibraryWebsite();
+			prettyPrint = readPrettyPrint();
+			excludePackages = "";
+			if (!confirmSettings(javadocExe, library, source, libraryName, libraryVersion, libraryJavadocUrl, libraryJavadocUrlPattern, libraryWebsite, prettyPrint)) {
+				return;
+			}
+		} else {
+			source = arguments.src();
+			if (source != null && !Files.exists(source)) {
+				die("Source code location does not exist: " + source);
+			}
+
+			library = arguments.maven();
+			if (source == null && library == null) {
+				die("Either a source code directory/ZIP (--src) or Maven coordinates (--maven) must be specified.");
+			}
+
+			libraryName = arguments.name();
+			if (libraryName.isEmpty()) {
+				if (library == null) {
+					die("A library name (--name) must be specified if the --src parameter is used.");
+				}
+				libraryName = library.getArtifactId();
+			}
+
+			libraryVersion = arguments.ver();
+			if (libraryVersion.isEmpty()) {
+				if (library == null) {
+					die("A library version (--ver) must be specified if the --src parameter is used.");
+				}
+				libraryVersion = library.getVersion();
+			}
+
+			libraryJavadocUrl = arguments.javadocUrl();
+			libraryJavadocUrlPattern = arguments.javadocUrlPattern();
+			libraryWebsite = arguments.website();
+			excludePackages = arguments.excludePackages();
+			prettyPrint = arguments.prettyPrint();
 		}
 
 		tempDir = Files.createTempDirectory("oakbot.doclet");
@@ -87,16 +125,21 @@ public class Main {
 				downloadPom(library);
 				dependencyJars = downloadDependencies();
 			} else {
-				dependencyJars = new ArrayList<>(0);
+				dependencyJars = Collections.emptyList();
 			}
 
 			Path sourceDir = Files.isDirectory(source) ? source : unzipSource(source);
 
-			List<String> commands = buildJavadocArgs(javadocExe, dependencyJars, sourceDir, libraryName, libraryVersion, libraryJavadocUrl, libraryJavadocUrlPattern, libraryWebsite, prettyPrint);
+			List<String> commands = buildJavadocArgs(javadocExe, dependencyJars, sourceDir, libraryName, libraryVersion, libraryJavadocUrl, libraryJavadocUrlPattern, libraryWebsite, excludePackages, prettyPrint);
 			runJavadoc(commands);
 		} finally {
 			deleteTempDir();
 		}
+	}
+
+	private static void die(String message) {
+		System.err.println(message);
+		System.exit(1);
 	}
 
 	private static void deleteTempDir() throws IOException {
@@ -105,7 +148,7 @@ public class Main {
 		console.printf("done.%n");
 	}
 
-	private static List<String> buildJavadocArgs(String javadocExe, List<Path> dependencies, Path source, String name, String version, String javadocUrl, String javadocUrlPattern, String website, boolean prettyPrint) throws IOException {
+	private static List<String> buildJavadocArgs(String javadocExe, List<Path> dependencies, Path source, String name, String version, String javadocUrl, String javadocUrlPattern, String website, String excludePackages, boolean prettyPrint) throws IOException {
 		List<String> commands = new ArrayList<>();
 		commands.add(javadocExe);
 
@@ -127,6 +170,11 @@ public class Main {
 		for (String subpackage : getSubpackages(source)) {
 			commands.add("-subpackages");
 			commands.add(subpackage);
+		}
+		
+		if (!excludePackages.isEmpty()){
+			commands.add("-exclude");
+			commands.add(excludePackages);
 		}
 
 		commands.add("-quiet");
@@ -224,14 +272,12 @@ public class Main {
 	private static String getJavadocExe() {
 		String javaHomeEnv = System.getenv("JAVA_HOME");
 		if (javaHomeEnv == null) {
-			console.printf("Please set your JAVA_HOME environment variable:%nexport JAVA_HOME=/path/to/jdk%n");
-			return null;
+			die("Please set your JAVA_HOME environment variable: export JAVA_HOME=/path/to/jdk");
 		}
 
 		Path javadoc = Paths.get(javaHomeEnv, "bin", "javadoc");
 		if (!Files.exists(javadoc)) {
-			console.printf("JAVA_HOME path is not valid or does not contain a \"javadoc\" executable: " + javaHomeEnv + "%n");
-			return null;
+			die("JAVA_HOME path is not valid or does not contain a \"javadoc\" executable: " + javaHomeEnv);
 		}
 
 		return javadoc.toString();
