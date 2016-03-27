@@ -27,15 +27,12 @@ import oakbot.doclet.ConfigProperties;
 import oakbot.doclet.OakbotDoclet;
 
 /**
- * A command-line interface for generating a Javadoc ZIP file for OakBot. The
- * library source code and its dependencies are automatically downloaded from
- * Maven Central.
+ * A command-line interface for generating a Javadoc ZIP file for OakBot.
  * @author Michael Angstadt
  */
 public class Main {
 	private static final Console console = System.console();
 	private static Path tempDir;
-	private static boolean verbose = false;
 
 	public static void main(String args[]) throws Exception {
 		Arguments arguments = new Arguments(args);
@@ -43,8 +40,6 @@ public class Main {
 			arguments.printHelp();
 			return;
 		}
-
-		verbose = arguments.verbose();
 
 		String javadocExe = getJavadocExe();
 
@@ -78,8 +73,8 @@ public class Main {
 			libraryJavadocUrlPattern = readLibraryJavadocUrlPattern();
 			libraryWebsite = readLibraryWebsite();
 			prettyPrint = readPrettyPrint();
-			excludePackages = "";
-			if (!confirmSettings(javadocExe, library, source, libraryName, libraryVersion, libraryJavadocUrl, libraryJavadocUrlPattern, libraryWebsite, prettyPrint)) {
+			excludePackages = readExcludePackages();
+			if (!confirmSettings(javadocExe, library, source, libraryName, libraryVersion, libraryJavadocUrl, libraryJavadocUrlPattern, libraryWebsite, prettyPrint, excludePackages)) {
 				return;
 			}
 		} else {
@@ -131,7 +126,7 @@ public class Main {
 			Path sourceDir = Files.isDirectory(source) ? source : unzipSource(source);
 
 			List<String> commands = buildJavadocArgs(javadocExe, dependencyJars, sourceDir, libraryName, libraryVersion, libraryJavadocUrl, libraryJavadocUrlPattern, libraryWebsite, excludePackages, prettyPrint);
-			runJavadoc(commands);
+			runJavadoc(commands, arguments.verbose());
 		} finally {
 			deleteTempDir();
 		}
@@ -171,8 +166,8 @@ public class Main {
 			commands.add("-subpackages");
 			commands.add(subpackage);
 		}
-		
-		if (!excludePackages.isEmpty()){
+
+		if (!excludePackages.isEmpty()) {
 			commands.add("-exclude");
 			commands.add(excludePackages);
 		}
@@ -180,7 +175,7 @@ public class Main {
 		commands.add("-quiet");
 
 		ConfigProperties config = new ConfigProperties();
-		config.setOutputPath(Paths.get(name + "-" + version + ".zip"));
+		config.setOutputPath(Paths.get(name + "-" + version + ".zip")); //TODO allow user to customize this
 		config.setPrettyPrint(prettyPrint);
 		config.setLibraryName(name);
 		config.setLibraryVersion(version);
@@ -203,7 +198,7 @@ public class Main {
 		return commands;
 	}
 
-	private static void runJavadoc(List<String> commands) throws IOException, InterruptedException {
+	private static void runJavadoc(List<String> commands, boolean verbose) throws IOException, InterruptedException {
 		if (verbose) {
 			console.printf("Starting doclet with commands: " + commands + "%n");
 		} else {
@@ -332,7 +327,11 @@ public class Main {
 		return "y".equalsIgnoreCase(answer);
 	}
 
-	private static boolean confirmSettings(String javadocExe, MavenLibrary library, Path source, String libraryName, String libraryVersion, String libraryJavadocUrl, String libraryJavadocUrlPattern, String libraryWebsite, boolean prettyPrint) throws IOException {
+	private static String readExcludePackages() {
+		return console.readLine("Enter a comma separated list of packages you want to exclude (optional): ").trim();
+	}
+
+	private static boolean confirmSettings(String javadocExe, MavenLibrary library, Path source, String libraryName, String libraryVersion, String libraryJavadocUrl, String libraryJavadocUrlPattern, String libraryWebsite, boolean prettyPrint, String excludePackages) throws IOException {
 		console.printf("=============Confirmation=============%n");
 		console.printf("Javadoc executable: " + javadocExe + "%n");
 		if (library != null) {
@@ -347,6 +346,7 @@ public class Main {
 		console.printf("Javadoc URL pattern: " + libraryJavadocUrlPattern + "%n");
 		console.printf("Website: " + libraryWebsite + "%n");
 		console.printf("Pretty print XML: " + prettyPrint + "%n");
+		console.printf("Exclude packages: " + excludePackages + "%n");
 
 		String answer = console.readLine("Proceed? [Y/n] ");
 		return answer.isEmpty() || "y".equalsIgnoreCase(answer);
