@@ -46,7 +46,7 @@ public class Main {
 		String libraryName, libraryVersion, libraryJavadocUrl, libraryJavadocUrlPattern, libraryWebsite, excludePackages;
 		boolean prettyPrint;
 		MavenLibrary library = null;
-		Path source = null;
+		Path source = null, output = null;
 		if (arguments.interactive()) {
 			console.printf("Welcome to the OakBot Javadoc Generator.%n");
 			while (true) {
@@ -74,7 +74,9 @@ public class Main {
 			libraryWebsite = readLibraryWebsite();
 			prettyPrint = readPrettyPrint();
 			excludePackages = readExcludePackages();
-			if (!confirmSettings(javadocExe, library, source, libraryName, libraryVersion, libraryJavadocUrl, libraryJavadocUrlPattern, libraryWebsite, prettyPrint, excludePackages)) {
+			String defaultOutput = libraryName + "-" + libraryVersion + ".zip";
+			output = Paths.get(readOutput(defaultOutput));
+			if (!confirmSettings(javadocExe, library, source, libraryName, libraryVersion, libraryJavadocUrl, libraryJavadocUrlPattern, libraryWebsite, prettyPrint, excludePackages, output)) {
 				return;
 			}
 		} else {
@@ -109,6 +111,7 @@ public class Main {
 			libraryWebsite = arguments.website();
 			excludePackages = arguments.excludePackages();
 			prettyPrint = arguments.prettyPrint();
+			output = arguments.output();
 		}
 
 		tempDir = Files.createTempDirectory("oakbot.doclet");
@@ -125,7 +128,7 @@ public class Main {
 
 			Path sourceDir = Files.isDirectory(source) ? source : unzipSource(source);
 
-			List<String> commands = buildJavadocArgs(javadocExe, dependencyJars, sourceDir, libraryName, libraryVersion, libraryJavadocUrl, libraryJavadocUrlPattern, libraryWebsite, excludePackages, prettyPrint);
+			List<String> commands = buildJavadocArgs(javadocExe, dependencyJars, sourceDir, libraryName, libraryVersion, libraryJavadocUrl, libraryJavadocUrlPattern, libraryWebsite, excludePackages, prettyPrint, output);
 			runJavadoc(commands, arguments.verbose());
 		} finally {
 			deleteTempDir();
@@ -143,7 +146,7 @@ public class Main {
 		console.printf("done.%n");
 	}
 
-	private static List<String> buildJavadocArgs(String javadocExe, List<Path> dependencies, Path source, String name, String version, String javadocUrl, String javadocUrlPattern, String website, String excludePackages, boolean prettyPrint) throws IOException {
+	private static List<String> buildJavadocArgs(String javadocExe, List<Path> dependencies, Path source, String name, String version, String javadocUrl, String javadocUrlPattern, String website, String excludePackages, boolean prettyPrint, Path output) throws IOException {
 		List<String> commands = new ArrayList<>();
 		commands.add(javadocExe);
 
@@ -175,7 +178,7 @@ public class Main {
 		commands.add("-quiet");
 
 		ConfigProperties config = new ConfigProperties();
-		config.setOutputPath(Paths.get(name + "-" + version + ".zip")); //TODO allow user to customize this
+		config.setOutputPath(output);
 		config.setPrettyPrint(prettyPrint);
 		config.setLibraryName(name);
 		config.setLibraryVersion(version);
@@ -331,7 +334,12 @@ public class Main {
 		return console.readLine("Enter a comma separated list of packages you want to exclude (optional): ").trim();
 	}
 
-	private static boolean confirmSettings(String javadocExe, MavenLibrary library, Path source, String libraryName, String libraryVersion, String libraryJavadocUrl, String libraryJavadocUrlPattern, String libraryWebsite, boolean prettyPrint, String excludePackages) throws IOException {
+	private static String readOutput(String defaultValue) {
+		String answer = console.readLine("Save ZIP file as: [" + defaultValue + "] ").trim();
+		return answer.isEmpty() ? defaultValue : answer;
+	}
+
+	private static boolean confirmSettings(String javadocExe, MavenLibrary library, Path source, String libraryName, String libraryVersion, String libraryJavadocUrl, String libraryJavadocUrlPattern, String libraryWebsite, boolean prettyPrint, String excludePackages, Path output) throws IOException {
 		console.printf("=============Confirmation=============%n");
 		console.printf("Javadoc executable: " + javadocExe + "%n");
 		if (library != null) {
@@ -347,6 +355,7 @@ public class Main {
 		console.printf("Website: " + libraryWebsite + "%n");
 		console.printf("Pretty print XML: " + prettyPrint + "%n");
 		console.printf("Exclude packages: " + excludePackages + "%n");
+		console.printf("Save ZIP file to: " + output + "%n");
 
 		String answer = console.readLine("Proceed? [Y/n] ");
 		return answer.isEmpty() || "y".equalsIgnoreCase(answer);

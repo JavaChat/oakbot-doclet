@@ -36,6 +36,7 @@ public class Arguments {
 		parser.accepts("website").withRequiredArg();
 
 		parser.accepts("prettyPrint");
+		parser.accepts("output").withRequiredArg();
 
 		options = parser.parse(args);
 	}
@@ -58,8 +59,7 @@ public class Arguments {
 	}
 
 	public Path src() {
-		String value = value("src");
-		return value.isEmpty() ? null : Paths.get(value);
+		return path("src");
 	}
 
 	public String name() {
@@ -90,6 +90,10 @@ public class Arguments {
 		return bool(false, "prettyPrint");
 	}
 
+	public Path output() {
+		return path("output");
+	}
+
 	public void printHelp() {
 		String text;
 		try {
@@ -110,6 +114,11 @@ public class Arguments {
 			}
 		}
 		return defaultValue;
+	}
+
+	private Path path(String option) {
+		String value = value(option);
+		return value.isEmpty() ? null : Paths.get(value);
 	}
 
 	private String value(String option) {
