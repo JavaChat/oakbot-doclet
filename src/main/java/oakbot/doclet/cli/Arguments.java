@@ -1,5 +1,8 @@
 package oakbot.doclet.cli;
 
+import java.io.IOException;
+import java.net.URISyntaxException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
@@ -53,42 +56,51 @@ public class Arguments {
 		String value = value("maven");
 		return value.isEmpty() ? null : MavenLibrary.parse(value);
 	}
-	
-	public Path src(){
+
+	public Path src() {
 		String value = value("src");
 		return value.isEmpty() ? null : Paths.get(value);
 	}
-	
-	public String name(){
+
+	public String name() {
 		return value("name");
 	}
-	
-	public String ver(){
+
+	public String ver() {
 		return value("ver");
 	}
-	
-	public String excludePackages(){
+
+	public String excludePackages() {
 		return value("excludePackages");
 	}
-	
-	public String javadocUrl(){
+
+	public String javadocUrl() {
 		return value("javadocUrl");
 	}
-	
-	public String javadocUrlPattern(){
+
+	public String javadocUrlPattern() {
 		return value("javadocUrlPattern");
 	}
-	
-	public String website(){
+
+	public String website() {
 		return value("website");
 	}
-	
-	public boolean prettyPrint(){
+
+	public boolean prettyPrint() {
 		return bool(false, "prettyPrint");
 	}
 
 	public void printHelp() {
-		System.out.println("Generates Javadoc ZIP files for OakBot.");
+		String text;
+		try {
+			Path helpText = Paths.get(getClass().getResource("help.txt").toURI());
+			text = new String(Files.readAllBytes(helpText));
+		} catch (IOException | URISyntaxException e) {
+			//should never be thrown because file is on the classpath
+			throw new RuntimeException(e);
+		}
+
+		System.out.println(text);
 	}
 
 	private boolean bool(boolean defaultValue, String... options) {
