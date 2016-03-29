@@ -63,7 +63,7 @@ public class OakbotDoclet {
 			env.put("create", "true");
 
 			try (FileSystem fs = FileSystems.newFileSystem(uri, env)) {
-				builder.listener(new ListenerImpl(fs, prettyPrint));
+				builder.progressListener(new ProgressListenerImpl(fs, prettyPrint));
 
 				RootDocXmlProcessor parser = builder.build();
 
@@ -82,14 +82,14 @@ public class OakbotDoclet {
 		return true;
 	}
 
-	private static class ListenerImpl implements RootDocXmlProcessor.Listener {
+	private static class ProgressListenerImpl implements RootDocXmlProcessor.ProgressListener {
 		private final FileSystem fs;
 		private final boolean prettyPrint;
 
 		private int curClass = 1;
 		private int prevMessageLength = 0;
 
-		public ListenerImpl(FileSystem fs, boolean prettyPrint) {
+		public ProgressListenerImpl(FileSystem fs, boolean prettyPrint) {
 			this.fs = fs;
 			this.prettyPrint = prettyPrint;
 		}

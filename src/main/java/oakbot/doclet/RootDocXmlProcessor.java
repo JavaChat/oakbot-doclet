@@ -29,7 +29,7 @@ import com.sun.javadoc.Type;
  */
 public class RootDocXmlProcessor {
 	private final String libraryName, libraryVersion, baseJavadocUrl, javadocUrlPattern, projectUrl;
-	private final Listener listener;
+	private final ProgressListener progressListener;
 
 	private RootDocXmlProcessor(Builder builder) {
 		libraryName = builder.libraryName;
@@ -37,7 +37,7 @@ public class RootDocXmlProcessor {
 		baseJavadocUrl = builder.baseJavadocUrl;
 		javadocUrlPattern = builder.javadocUrlPattern;
 		projectUrl = builder.projectUrl;
-		listener = builder.listener;
+		progressListener = builder.progressListener;
 	}
 
 	/**
@@ -46,16 +46,16 @@ public class RootDocXmlProcessor {
 	 */
 	public void process(RootDoc rootDoc) {
 		Document info = createInfoDocument();
-		listener.infoCreated(info);
+		progressListener.infoCreated(info);
 
 		ClassDoc classDocs[] = rootDoc.classes();
 		for (ClassDoc classDoc : classDocs) {
-			listener.parsingClass(classDoc, classDocs.length);
+			progressListener.parsingClass(classDoc, classDocs.length);
 
 			Document document = newDocument();
 			Element classElement = parseClass(classDoc, document);
 			document.appendChild(classElement);
-			listener.classParsed(classDoc, document);
+			progressListener.classParsed(classDoc, document);
 		}
 	}
 
@@ -387,7 +387,10 @@ public class RootDocXmlProcessor {
 		}
 	}
 
-	public static interface Listener {
+	/**
+	 * Provides callbacks for monitoring the progress of the operation.
+	 */
+	public interface ProgressListener {
 		public void parsingClass(ClassDoc classDoc, int numClasses);
 
 		public void infoCreated(Document info);
@@ -397,7 +400,7 @@ public class RootDocXmlProcessor {
 
 	public static class Builder {
 		private String libraryName, libraryVersion, baseJavadocUrl, javadocUrlPattern, projectUrl;
-		private Listener listener;
+		private ProgressListener progressListener;
 
 		/**
 		 * @param libraryName the name of the library (e.g. "guava")
@@ -443,8 +446,13 @@ public class RootDocXmlProcessor {
 			return this;
 		}
 
-		public Builder listener(Listener listener) {
-			this.listener = listener;
+		/**
+		 * @param progressListener callbacks for monitoring the progress of the
+		 * operation.
+		 * @return this
+		 */
+		public Builder progressListener(ProgressListener progressListener) {
+			this.progressListener = progressListener;
 			return this;
 		}
 
