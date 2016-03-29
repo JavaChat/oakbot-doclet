@@ -8,6 +8,7 @@ import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -48,30 +49,34 @@ public class OakbotDoclet {
 		builder.projectUrl(properties.getProjectUrl());
 
 		builder.baseJavadocUrl(properties.getLibraryBaseUrl());
-		
+
 		builder.javadocUrlPattern(properties.getLibraryJavadocUrlPattern());
 
 		boolean prettyPrint = properties.isPrettyPrint();
 
 		Path path = properties.getOutputPath();
-		Path outputPath = (path == null) ? Paths.get("javadocs.zip") : path;
-		if (Files.exists(outputPath)) {
-			Files.delete(outputPath);
-		}
+		Path outputPath = (path == null) ? Paths.get(properties.getLibraryName() + "-" + properties.getLibraryVersion() + ".zip") : path;
+		Path tempFile = Files.createTempFile("oakbot-doclet-javadocs", ".zip");
+		try {
+			URI uri = URI.create("jar:file:" + tempFile.toAbsolutePath());
+			Map<String, String> env = new HashMap<>();
+			env.put("create", "true");
 
-		URI uri = URI.create("jar:file:" + outputPath.toAbsolutePath());
-		Map<String, String> env = new HashMap<>();
-		env.put("create", "true");
+			try (FileSystem fs = FileSystems.newFileSystem(uri, env)) {
+				builder.listener(new ListenerImpl(fs, prettyPrint));
 
-		try (FileSystem fs = FileSystems.newFileSystem(uri, env)) {
-			builder.listener(new ListenerImpl(fs, prettyPrint));
+				RootDocXmlProcessor parser = builder.build();
 
-			RootDocXmlProcessor parser = builder.build();
+				System.out.println("OakBot Doclet");
+				System.out.println("Saving to: " + outputPath);
 
-			System.out.println("OakBot Doclet");
-			System.out.println("Saving to: " + outputPath);
+				parser.process(rootDoc);
+			}
 
-			parser.process(rootDoc);
+			Files.move(tempFile, outputPath, StandardCopyOption.REPLACE_EXISTING);
+		} catch (Exception e) {
+			Files.delete(tempFile);
+			throw e;
 		}
 
 		return true;
