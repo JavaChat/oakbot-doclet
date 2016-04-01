@@ -1,8 +1,9 @@
 package oakbot.doclet.cli;
 
 import java.io.IOException;
-import java.net.URISyntaxException;
-import java.nio.file.Files;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
@@ -95,16 +96,23 @@ public class Arguments {
 	}
 
 	public void printHelp() {
-		String text;
-		try {
-			Path helpText = Paths.get(getClass().getResource("help.txt").toURI());
-			text = new String(Files.readAllBytes(helpText));
-		} catch (IOException | URISyntaxException e) {
+		String helpText;
+
+		/*
+		 * Getting the file contents using a Path doesn't work, throws
+		 * FileSystemNotFoundException when run from the packaged JAR:
+		 * 
+		 * Path helpText =
+		 * Paths.get(getClass().getResource("help.txt").toURI());
+		 */
+		try (InputStream in = getClass().getResourceAsStream("help.txt")) {
+			helpText = readContents(in);
+		} catch (IOException e) {
 			//should never be thrown because file is on the classpath
 			throw new RuntimeException(e);
 		}
 
-		System.out.println(text);
+		System.out.println(helpText);
 	}
 
 	private boolean bool(boolean defaultValue, String... options) {
@@ -124,5 +132,22 @@ public class Arguments {
 	private String value(String option) {
 		String value = (String) options.valueOf(option);
 		return (value == null) ? "" : value.trim();
+	}
+
+	/**
+	 * Reads the contents of an input stream to a string.
+	 * @param in the input stream
+	 * @return the string
+	 * @throws IOException if there's a problem reading from the input stream
+	 */
+	private static String readContents(InputStream in) throws IOException {
+		Reader reader = new InputStreamReader(in);
+		StringBuilder sb = new StringBuilder();
+		char buffer[] = new char[2048];
+		int read;
+		while ((read = reader.read(buffer)) != -1) {
+			sb.append(buffer, 0, read);
+		}
+		return sb.toString();
 	}
 }
