@@ -134,7 +134,7 @@ public class OakbotDoclet {
 		for (ClassDoc classDoc : classDocs) {
 			progress.print(classDoc);
 
-			Document document = RootDocXmlProcessor.parseClass(classDoc);
+			Document document = RootDocXmlProcessor.toDocument(classDoc);
 			Path path = fs.getPath(classFilePath(classDoc));
 			Files.createDirectories(path.getParent());
 			writeXmlDocument(document, path);

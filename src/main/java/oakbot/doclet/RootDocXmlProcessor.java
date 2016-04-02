@@ -4,7 +4,9 @@ import static oakbot.util.XmlUtils.newDocument;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.jsoup.Jsoup;
 import org.w3c.dom.Document;
@@ -14,6 +16,7 @@ import com.sun.javadoc.AnnotationDesc;
 import com.sun.javadoc.ClassDoc;
 import com.sun.javadoc.ConstructorDoc;
 import com.sun.javadoc.MethodDoc;
+import com.sun.javadoc.PackageDoc;
 import com.sun.javadoc.Parameter;
 import com.sun.javadoc.ProgramElementDoc;
 import com.sun.javadoc.Tag;
@@ -24,29 +27,30 @@ import com.sun.javadoc.Type;
  * @author Michael Angstadt
  */
 public final class RootDocXmlProcessor {
+	private final Document document;
+
 	/**
 	 * Parses the Javadoc information out of a Javadoc {@link ClassDoc} object
-	 * and into an XML file.
+	 * and into an XML document.
 	 * @param classDoc the class to parse
 	 * @return the XML document containing the Javadoc information
 	 */
-	public static Document parseClass(ClassDoc classDoc) {
+	public static Document toDocument(ClassDoc classDoc) {
 		Document document = newDocument();
-		Element classElement = parseClass(classDoc, document);
-		document.appendChild(classElement);
+		RootDocXmlProcessor processor = new RootDocXmlProcessor(document);
+		Element element = processor.parseClass(classDoc);
+		document.appendChild(element);
 		return document;
 	}
 
-	private static Element parseClass(ClassDoc classDoc, Document document) {
+	private RootDocXmlProcessor(Document document) {
+		this.document = document;
+	}
+
+	private Element parseClass(ClassDoc classDoc) {
 		Element element = document.createElement("class");
 
-		//full name
-		String fullName = classDoc.qualifiedTypeName();
-		element.setAttribute("fullName", fullName);
-
-		//simple name
-		String simpleName = classDoc.simpleTypeName();
-		element.setAttribute("simpleName", simpleName);
+		applyClassNameAttribute("name", classDoc, element);
 
 		//modifiers
 		List<String> modifiers = new ArrayList<>();
@@ -75,17 +79,11 @@ public final class RootDocXmlProcessor {
 		//super class
 		ClassDoc superClass = classDoc.superclass();
 		if (superClass != null) {
-			element.setAttribute("extends", superClass.qualifiedTypeName());
+			applyClassNameAttribute("extends", superClass, element);
 		}
 
 		//interfaces
-		List<String> implementsList = new ArrayList<>();
-		for (ClassDoc interfaceDoc : classDoc.interfaces()) {
-			implementsList.add(interfaceDoc.qualifiedTypeName());
-		}
-		if (!implementsList.isEmpty()) {
-			element.setAttribute("implements", String.join(" ", implementsList));
-		}
+		applyClassNameAttribute("implements", classDoc.interfaces(), element);
 
 		//deprecated
 		if (isDeprecated(classDoc)) {
@@ -99,25 +97,21 @@ public final class RootDocXmlProcessor {
 		element.appendChild(descriptionElement);
 
 		//constructors
-		Element constructorsElement = document.createElement("constructors");
 		for (ConstructorDoc constructor : classDoc.constructors()) {
-			constructorsElement.appendChild(parseConstructor(constructor, document));
+			element.appendChild(parseConstructor(constructor));
 		}
-		element.appendChild(constructorsElement);
 
 		//methods
-		Element methodsElement = document.createElement("methods");
 		for (MethodDoc method : classDoc.methods()) {
-			methodsElement.appendChild(parseMethod(method, document));
+			element.appendChild(parseMethod(method));
 		}
-		element.appendChild(methodsElement);
 
 		//TODO java.lang.Object methods
 
 		return element;
 	}
 
-	private static Element parseConstructor(ConstructorDoc constructor, Document document) {
+	private Element parseConstructor(ConstructorDoc constructor) {
 		Element element = document.createElement("constructor");
 
 		//deprecated
@@ -126,13 +120,7 @@ public final class RootDocXmlProcessor {
 		}
 
 		//thrown exceptions
-		List<String> exceptions = new ArrayList<>();
-		for (Type type : constructor.thrownExceptionTypes()) {
-			exceptions.add(type.qualifiedTypeName());
-		}
-		if (!exceptions.isEmpty()) {
-			element.setAttribute("throws", String.join(" ", exceptions));
-		}
+		applyClassNameAttribute("throws", constructor.thrownExceptionTypes(), element);
 
 		//description
 		String description = toMarkdown(constructor.inlineTags());
@@ -141,16 +129,14 @@ public final class RootDocXmlProcessor {
 		element.appendChild(descriptionElement);
 
 		//parameters
-		Element parametersElement = document.createElement("parameters");
 		for (Parameter parameter : constructor.parameters()) {
-			parametersElement.appendChild(parseParameter(parameter, document));
+			element.appendChild(parseParameter(parameter));
 		}
-		element.appendChild(parametersElement);
 
 		return element;
 	}
 
-	private static Element parseMethod(MethodDoc method, Document document) {
+	private Element parseMethod(MethodDoc method) {
 		Element element = document.createElement("method");
 
 		//name
@@ -167,17 +153,13 @@ public final class RootDocXmlProcessor {
 		}
 
 		//return value
-		String returns = method.returnType().qualifiedTypeName();
-		element.setAttribute("returns", returns);
+		Type returnType = method.returnType();
+		if (!"void".equals(returnType.qualifiedTypeName())) {
+			applyClassNameAttribute("returns", returnType, element);
+		}
 
 		//thrown exceptions
-		List<String> exceptions = new ArrayList<>();
-		for (Type type : method.thrownExceptionTypes()) {
-			exceptions.add(type.qualifiedTypeName());
-		}
-		if (!exceptions.isEmpty()) {
-			element.setAttribute("throws", String.join(" ", exceptions));
-		}
+		applyClassNameAttribute("throws", method.thrownExceptionTypes(), element);
 
 		//description
 		String description;
@@ -186,13 +168,7 @@ public final class RootDocXmlProcessor {
 			if (overriddenMethod.containingClass().isPackagePrivate()) {
 				description = toMarkdown(overriddenMethod.inlineTags());
 			} else {
-				String qualifiedName = overriddenMethod.qualifiedName();
-				int pos = qualifiedName.lastIndexOf('.');
-				qualifiedName = qualifiedName.substring(0, pos) + "#" + qualifiedName.substring(pos + 1);
-
-				//e.g. oakbot.javadoc.PageParser#parseClassPage(org.jsoup.nodes.Document, java.lang.String)
-				element.setAttribute("overrides", qualifiedName + overriddenMethod.signature());
-
+				element.setAttribute("overrides", methodName(overriddenMethod));
 				description = toMarkdown(method.inlineTags());
 			}
 		} else {
@@ -203,25 +179,150 @@ public final class RootDocXmlProcessor {
 		element.appendChild(descriptionElement);
 
 		//parameters
-		Element parametersElement = document.createElement("parameters");
 		for (Parameter parameter : method.parameters()) {
-			parametersElement.appendChild(parseParameter(parameter, document));
+			element.appendChild(parseParameter(parameter));
 		}
-		element.appendChild(parametersElement);
 
 		return element;
 	}
 
-	private static Element parseParameter(Parameter parameter, Document document) {
+	private Element parseParameter(Parameter parameter) {
 		Element element = document.createElement("parameter");
 
 		String name = parameter.name();
 		element.setAttribute("name", name);
 
-		String type = parameter.type().qualifiedTypeName();
-		element.setAttribute("type", type + parameter.type().dimension());
+		Type type = parameter.type();
+		applyClassNameAttribute("type", type, element);
 
 		return element;
+	}
+
+	/**
+	 * Add a specially formatted attribute to an element that contains a class's
+	 * fully qualified name. For example,
+	 * {@code <class name="java.util|Map.Entry">}
+	 * @param attributeName the name of the attribute to add
+	 * @param type the type information
+	 * @param element the element
+	 */
+	private static void applyClassNameAttribute(String attributeName, Type type, Element element) {
+		applyClassNameAttribute(attributeName, new Type[] { type }, element);
+	}
+
+	/**
+	 * Add a specially formatted attribute to an element that contains a class's
+	 * fully qualified name. For example,
+	 * {@code <class name="java.util|Map.Entry">}
+	 * @param attributeName the name of the attribute to add
+	 * @param types the type information
+	 * @param element the element
+	 */
+	private static void applyClassNameAttribute(String attributeName, Type types[], Element element) {
+		if (types.length == 0) {
+			return;
+		}
+
+		List<String> names = Arrays.stream(types).map(RootDocXmlProcessor::typeName).collect(Collectors.toList());
+		element.setAttribute(attributeName, String.join(" ", names));
+	}
+
+	/**
+	 * Add a specially formatted attribute to an element that contains a class's
+	 * fully qualified name. For example,
+	 * {@code <class name="java.util|Map.Entry">}
+	 * @param attributeName the name of the attribute to add
+	 * @param classDoc the class information
+	 * @param element the element
+	 */
+	private static void applyClassNameAttribute(String attributeName, ClassDoc classDoc, Element element) {
+		applyClassNameAttribute(attributeName, new ClassDoc[] { classDoc }, element);
+	}
+
+	/**
+	 * Add a specially formatted attribute to an element that contains a class's
+	 * fully qualified name. For example,
+	 * {@code <class name="java.util|Map.Entry">}
+	 * @param attributeName the name of the attribute to add
+	 * @param classDocs the class information
+	 * @param element the element
+	 */
+	private static void applyClassNameAttribute(String attributeName, ClassDoc classDocs[], Element element) {
+		if (classDocs.length == 0) {
+			return;
+		}
+
+		List<String> names = Arrays.stream(classDocs).map(RootDocXmlProcessor::className).collect(Collectors.toList());
+		element.setAttribute(attributeName, String.join(" ", names));
+	}
+
+	/**
+	 * Builds a specially formatted string that is used to define a type's fully
+	 * qualified name.
+	 * @param type the type information
+	 * @return the fully qualified name (e.g. "java.lang|String[]")
+	 */
+	private static String typeName(Type type) {
+		ClassDoc classDoc = type.asClassDoc();
+		String typeName = (classDoc == null) ? type.simpleTypeName() : className(classDoc);
+		return typeName + type.dimension();
+	}
+
+	/**
+	 * Builds a specially formatted string that is used to define a parameter's
+	 * fully qualified name.
+	 * @param parameter the parameter information
+	 * @return the fully qualified name (e.g. "java.lang|String[]")
+	 */
+	private static String parameterName(Parameter parameter) {
+		return typeName(parameter.type());
+	}
+
+	/**
+	 * Builds a specially formatted string that is used to define a method's
+	 * fully qualified name.
+	 * @param methodDoc the method information
+	 * @return the fully qualified name (e.g.
+	 * "java.util|Map.Entry#equals(java.lang|Object)")
+	 */
+	private static String methodName(MethodDoc methodDoc) {
+		String className = className(methodDoc.containingClass());
+		String methodName = methodDoc.name();
+		List<String> parameterNames = Arrays.stream(methodDoc.parameters()).map(RootDocXmlProcessor::parameterName).collect(Collectors.toList());
+
+		return className + '#' + methodName + '(' + String.join(", ", parameterNames) + ')';
+	}
+
+	/**
+	 * Builds a specially formatted string that is used to define a class's
+	 * fully qualified name.
+	 * @param classDoc the class information
+	 * @return the fully qualified name (e.g. "java.util|Map.Entry")
+	 */
+	private static String className(ClassDoc classDoc) {
+		StringBuilder sb = new StringBuilder();
+
+		//package
+		PackageDoc packageDoc = classDoc.containingPackage();
+		if (packageDoc != null) {
+			sb.append(packageDoc.name()).append('|');
+		}
+
+		//outerClasses
+		List<String> outerClasses = new ArrayList<>(1);
+		ClassDoc outer = classDoc;
+		while ((outer = outer.containingClass()) != null) {
+			outerClasses.add(outer.simpleTypeName());
+		}
+		if (!outerClasses.isEmpty()) {
+			Collections.reverse(outerClasses);
+			sb.append(String.join(".", outerClasses)).append('.');
+		}
+
+		//simple name
+		sb.append(classDoc.simpleTypeName());
+
+		return sb.toString();
 	}
 
 	/**
@@ -350,9 +451,5 @@ public final class RootDocXmlProcessor {
 	 */
 	private static String escapeHtml(String text) {
 		return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;");
-	}
-
-	private RootDocXmlProcessor() {
-		//hide
 	}
 }
