@@ -11,8 +11,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -74,8 +76,8 @@ public class OakbotDoclet {
 		Files.delete(tempFile); //file must be deleted, otherwise the ZIP file will not get created
 		try {
 			try (FileSystem fs = createZip(tempFile)) {
-				createInfoFile(fs);
 				createClassFiles(fs, rootDoc);
+				createInfoFile(fs);
 			}
 			Files.move(tempFile, outputPath, StandardCopyOption.REPLACE_EXISTING);
 		} catch (Exception e) {
@@ -116,6 +118,7 @@ public class OakbotDoclet {
 		element.setAttribute("baseUrl", properties.getLibraryBaseUrl());
 		element.setAttribute("javadocUrlPattern", properties.getLibraryJavadocUrlPattern());
 		element.setAttribute("projectUrl", properties.getProjectUrl());
+		element.setAttribute("generated", new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ").format(new Date()));
 		document.appendChild(element);
 
 		Path path = fs.getPath("info.xml");
