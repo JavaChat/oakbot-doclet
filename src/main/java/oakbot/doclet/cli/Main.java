@@ -365,7 +365,7 @@ public class Main {
 	}
 
 	private static Path unzipSource(Path sourceJar) throws IOException {
-		console.printf("Extracting files from source JAR...");
+		console.printf("Extracting files from source archive...");
 		Path dir = tempDir.resolve("src");
 		Files.createDirectory(dir);
 		unzip(dir, sourceJar);
