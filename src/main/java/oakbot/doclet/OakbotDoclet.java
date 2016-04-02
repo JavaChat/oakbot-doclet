@@ -63,7 +63,9 @@ public class OakbotDoclet {
 	public static boolean start(RootDoc rootDoc) throws Exception {
 		Path outputPath = properties.getOutputPath();
 		if (outputPath == null) {
-			outputPath = Paths.get(properties.getLibraryName() + "-" + properties.getLibraryVersion() + ".zip");
+			outputPath = Paths.get(defaultZipFilename());
+		} else if (Files.isDirectory(outputPath)) {
+			outputPath = outputPath.resolve(defaultZipFilename());
 		}
 
 		System.out.println("Saving to: " + outputPath);
@@ -82,6 +84,10 @@ public class OakbotDoclet {
 		}
 
 		return true;
+	}
+
+	private static String defaultZipFilename() {
+		return properties.getLibraryName() + "-" + properties.getLibraryVersion() + ".zip";
 	}
 
 	/**
