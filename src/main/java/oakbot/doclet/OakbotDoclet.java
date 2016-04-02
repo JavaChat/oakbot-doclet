@@ -11,7 +11,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import javax.xml.transform.OutputKeys;
@@ -25,6 +28,7 @@ import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 
 import com.sun.javadoc.ClassDoc;
+import com.sun.javadoc.PackageDoc;
 import com.sun.javadoc.RootDoc;
 
 /**
@@ -34,6 +38,21 @@ import com.sun.javadoc.RootDoc;
  */
 public class OakbotDoclet {
 	private static final ConfigProperties properties = new ConfigProperties(System.getProperties());
+
+	private static final Transformer transformer;
+	static {
+		try {
+			transformer = TransformerFactory.newInstance().newTransformer();
+		} catch (TransformerException e) {
+			//should never be thrown
+			throw new RuntimeException(e);
+		}
+
+		if (properties.isPrettyPrint()) {
+			transformer.setOutputProperty(OutputKeys.INDENT, "yes");
+			transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "2");
+		}
+	}
 
 	/**
 	 * The entry point for the {@code javadoc} command.
@@ -109,12 +128,47 @@ public class OakbotDoclet {
 		for (ClassDoc classDoc : classDocs) {
 			progress.print(classDoc);
 
-			//TODO use directories instead of putting all files in the root
 			Document document = RootDocXmlProcessor.parseClass(classDoc);
-			Path path = fs.getPath(classDoc.qualifiedTypeName() + ".xml");
+			Path path = fs.getPath(classFilePath(classDoc));
+			Files.createDirectories(path.getParent());
 			writeXmlDocument(document, path);
 		}
 		System.out.println();
+	}
+
+	/**
+	 * Builds the path string for where to save a class's Javadoc XML file.
+	 * @param classDoc the class
+	 * @return the path string
+	 */
+	private static String classFilePath(ClassDoc classDoc) {
+		/*
+		 * Note: We can't just use classDoc.qualifiedName() because, if we
+		 * replace all dots with slashes, then inner classes will not work
+		 * right. For example, "Map.Entry" will turn into
+		 * "java/util/Map/Entry.xml".
+		 */
+		PackageDoc packageDoc = classDoc.containingPackage();
+
+		StringBuilder sb = new StringBuilder();
+		if (packageDoc != null) {
+			sb.append(packageDoc.name().replace('.', '/')).append('/');
+		}
+
+		List<String> containingClasses = new ArrayList<>();
+		ClassDoc containingClassDoc = classDoc;
+		while ((containingClassDoc = containingClassDoc.containingClass()) != null) {
+			containingClasses.add(containingClassDoc.simpleTypeName());
+		}
+
+		Collections.reverse(containingClasses);
+		for (String containingClass : containingClasses) {
+			sb.append(containingClass).append('.');
+		}
+
+		sb.append(classDoc.simpleTypeName()).append(".xml");
+
+		return sb.toString();
 	}
 
 	/**
@@ -124,21 +178,7 @@ public class OakbotDoclet {
 	 * @throws IOException if there's a problem writing to the file
 	 */
 	private static void writeXmlDocument(Document document, Path file) throws IOException {
-		Transformer transformer;
-		try {
-			transformer = TransformerFactory.newInstance().newTransformer();
-		} catch (TransformerException e) {
-			//should never be thrown
-			throw new RuntimeException(e);
-		}
-
-		if (properties.isPrettyPrint()) {
-			transformer.setOutputProperty(OutputKeys.INDENT, "yes");
-			transformer.setOutputProperty("{http://xml.apache.org/xslt}indent-amount", "2");
-		}
-
 		DOMSource source = new DOMSource(document);
-
 		try (Writer writer = Files.newBufferedWriter(file)) {
 			StreamResult result = new StreamResult(writer);
 			transformer.transform(source, result);
