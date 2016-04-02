@@ -113,16 +113,24 @@ public class OakbotDoclet {
 	private static void createInfoFile(FileSystem fs) throws IOException {
 		Document document = newDocument();
 		Element element = document.createElement("info");
-		element.setAttribute("name", properties.getLibraryName());
-		element.setAttribute("version", properties.getLibraryVersion());
-		element.setAttribute("baseUrl", properties.getLibraryBaseUrl());
-		element.setAttribute("javadocUrlPattern", properties.getLibraryJavadocUrlPattern());
-		element.setAttribute("projectUrl", properties.getProjectUrl());
+		setAttribute("name", properties.getLibraryName(), element);
+		setAttribute("version", properties.getLibraryVersion(), element);
+		setAttribute("baseUrl", properties.getLibraryBaseUrl(), element);
+		setAttribute("javadocUrlPattern", properties.getLibraryJavadocUrlPattern(), element);
+		setAttribute("projectUrl", properties.getProjectUrl(), element);
 		element.setAttribute("generated", new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ").format(new Date()));
 		document.appendChild(element);
 
 		Path path = fs.getPath("info.xml");
 		writeXmlDocument(document, path);
+	}
+
+	private static void setAttribute(String name, String value, Element element) {
+		if (value == null || value.isEmpty()) {
+			return;
+		}
+
+		element.setAttribute(name, value);
 	}
 
 	/**
