@@ -1,9 +1,11 @@
 package oakbot.doclet.cli;
 
+import java.io.BufferedInputStream;
 import java.io.Console;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.PrintStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -16,6 +18,7 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -43,7 +46,8 @@ public class Main {
 
 		String javadocExe = getJavadocExe();
 
-		String libraryName, libraryVersion, libraryJavadocUrl, libraryJavadocUrlPattern, libraryWebsite, excludePackages;
+		String libraryName, libraryVersion, libraryJavadocUrl, libraryJavadocUrlPattern, libraryWebsite;
+		List<String> excludePackages = new ArrayList<>();
 		boolean prettyPrint;
 		MavenLibrary library = null;
 		Path source = null, output = null;
@@ -146,7 +150,7 @@ public class Main {
 		console.printf("done.%n");
 	}
 
-	private static List<String> buildJavadocArgs(String javadocExe, List<Path> dependencies, Path source, String name, String version, String javadocUrl, String javadocUrlPattern, String website, String excludePackages, boolean prettyPrint, Path output) throws IOException {
+	private static List<String> buildJavadocArgs(String javadocExe, List<Path> dependencies, Path source, String name, String version, String javadocUrl, String javadocUrlPattern, String website, List<String> excludePackages, boolean prettyPrint, Path output) throws IOException {
 		List<String> commands = new ArrayList<>();
 		commands.add(javadocExe);
 
@@ -170,12 +174,10 @@ public class Main {
 			commands.add(subpackage);
 		}
 
-		if (!excludePackages.isEmpty()) {
+		for (String excludePackage : excludePackages) {
 			commands.add("-exclude");
-			commands.add(excludePackages);
+			commands.add(excludePackage);
 		}
-
-		commands.add("-quiet");
 
 		ConfigProperties config = new ConfigProperties();
 		config.setOutputPath(output);
@@ -330,8 +332,9 @@ public class Main {
 		return "y".equalsIgnoreCase(answer);
 	}
 
-	private static String readExcludePackages() {
-		return console.readLine("Enter a comma separated list of packages you want to exclude (optional): ").trim();
+	private static List<String> readExcludePackages() {
+		String answer = console.readLine("Enter a comma separated list of packages you want to exclude (optional): ").trim();
+		return answer.isEmpty() ? Collections.emptyList() : Arrays.asList(answer.split("\\s*,\\s*"));
 	}
 
 	private static String readOutput(String defaultValue) {
@@ -339,7 +342,7 @@ public class Main {
 		return answer.isEmpty() ? defaultValue : answer;
 	}
 
-	private static boolean confirmSettings(String javadocExe, MavenLibrary library, Path source, String libraryName, String libraryVersion, String libraryJavadocUrl, String libraryJavadocUrlPattern, String libraryWebsite, boolean prettyPrint, String excludePackages, Path output) throws IOException {
+	private static boolean confirmSettings(String javadocExe, MavenLibrary library, Path source, String libraryName, String libraryVersion, String libraryJavadocUrl, String libraryJavadocUrlPattern, String libraryWebsite, boolean prettyPrint, List<String> excludePackages, Path output) throws IOException {
 		console.printf("=============Confirmation=============%n");
 		console.printf("Javadoc executable: " + javadocExe + "%n");
 		if (library != null) {
@@ -495,9 +498,11 @@ public class Main {
 
 			@Override
 			public FileVisitResult visitFileFailed(Path file, IOException exception) throws IOException {
-				// try to delete the file anyway, even if its attributes
-				// could not be read, since delete-only access is
-				// theoretically possible
+				/*
+				 * Try to delete the file anyway, even if its attributes could
+				 * not be read, since delete-only access is theoretically
+				 * possible.
+				 */
 				Files.delete(file);
 				return FileVisitResult.CONTINUE;
 			}
@@ -515,11 +520,37 @@ public class Main {
 		});
 	}
 
-	private static void pipeOutput(Process process) throws IOException {
-		try (InputStream in = process.getInputStream()) {
-			int read;
-			while ((read = in.read()) != -1) {
-				System.out.print((char) read);
+	/**
+	 * Pipes the output of a process to this program's stdout and stderr
+	 * streams.
+	 * @param process the process
+	 */
+	private static void pipeOutput(Process process) {
+		PipeThread stdout = new PipeThread(process.getInputStream(), System.out);
+		PipeThread stderr = new PipeThread(process.getErrorStream(), System.err);
+		stdout.start();
+		stderr.start();
+	}
+
+	private static class PipeThread extends Thread {
+		private final InputStream in;
+		private final PrintStream out;
+
+		public PipeThread(InputStream in, PrintStream out) {
+			this.in = in;
+			this.out = out;
+			setDaemon(true);
+		}
+
+		@Override
+		public void run() {
+			try (InputStream in = new BufferedInputStream(this.in)) {
+				int read;
+				while ((read = in.read()) != -1) {
+					out.print((char) read);
+				}
+			} catch (IOException e) {
+				//shouldn't be thrown
 			}
 		}
 	}

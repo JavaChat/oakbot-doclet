@@ -6,6 +6,9 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 import joptsimple.OptionParser;
 import joptsimple.OptionSet;
@@ -71,8 +74,9 @@ public class Arguments {
 		return value("ver");
 	}
 
-	public String excludePackages() {
-		return value("excludePackages");
+	public List<String> excludePackages() {
+		String value = value("excludePackages");
+		return value.isEmpty() ? Collections.emptyList() : Arrays.asList(value.split("\\s*,\\s*"));
 	}
 
 	public String javadocUrl() {
