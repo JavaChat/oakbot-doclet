@@ -15,6 +15,7 @@ import org.w3c.dom.Element;
 import com.sun.javadoc.AnnotationDesc;
 import com.sun.javadoc.ClassDoc;
 import com.sun.javadoc.ConstructorDoc;
+import com.sun.javadoc.Doc;
 import com.sun.javadoc.MethodDoc;
 import com.sun.javadoc.PackageDoc;
 import com.sun.javadoc.Parameter;
@@ -90,6 +91,12 @@ public final class RootDocXmlProcessor {
 			element.setAttribute("deprecated", "true");
 		}
 
+		//since
+		String since = parseSince(classDoc);
+		if (since != null) {
+			element.setAttribute("since", since);
+		}
+
 		//description
 		String description = toMarkdown(classDoc.inlineTags());
 		Element descriptionElement = document.createElement("description");
@@ -121,6 +128,12 @@ public final class RootDocXmlProcessor {
 
 		//thrown exceptions
 		applyClassNameAttribute("throws", constructor.thrownExceptionTypes(), element);
+
+		//since
+		String since = parseSince(constructor);
+		if (since != null) {
+			element.setAttribute("since", since);
+		}
 
 		//description
 		String description = toMarkdown(constructor.inlineTags());
@@ -160,6 +173,12 @@ public final class RootDocXmlProcessor {
 
 		//thrown exceptions
 		applyClassNameAttribute("throws", method.thrownExceptionTypes(), element);
+
+		//since
+		String since = parseSince(method);
+		if (since != null) {
+			element.setAttribute("since", since);
+		}
 
 		//description
 		String description;
@@ -403,6 +422,16 @@ public final class RootDocXmlProcessor {
 		}
 
 		return true;
+	}
+
+	/**
+	 * Gets the value of an element's {@literal @since} tag, if present.
+	 * @param doc the Javadoc element.
+	 * @return the {@literal @since} tag text or null if not found
+	 */
+	private static String parseSince(Doc doc) {
+		Tag tags[] = doc.tags("@since");
+		return (tags.length == 0) ? null : tags[0].text();
 	}
 
 	/**
