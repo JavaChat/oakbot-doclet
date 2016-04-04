@@ -81,7 +81,7 @@ public class OakbotDoclet {
 			}
 			Files.move(tempFile, outputPath, StandardCopyOption.REPLACE_EXISTING);
 		} catch (Exception e) {
-			Files.delete(tempFile);
+			Files.deleteIfExists(tempFile);
 			throw e;
 		}
 
