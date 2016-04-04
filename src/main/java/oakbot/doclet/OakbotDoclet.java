@@ -13,11 +13,15 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import javax.xml.transform.OutputKeys;
 import javax.xml.transform.Transformer;
@@ -76,7 +80,11 @@ public class OakbotDoclet {
 		Files.delete(tempFile); //file must be deleted, otherwise the ZIP file will not get created
 		try {
 			try (FileSystem fs = createZip(tempFile)) {
-				createClassFiles(fs, rootDoc);
+				if (useMultiThreading()) {
+					createClassFilesThreaded(fs, rootDoc);
+				} else {
+					createClassFiles(fs, rootDoc);
+				}
 				createInfoFile(fs);
 			}
 			Files.move(tempFile, outputPath, StandardCopyOption.REPLACE_EXISTING);
@@ -86,6 +94,24 @@ public class OakbotDoclet {
 		}
 
 		return true;
+	}
+
+	/**
+	 * Gets the number of cores the computer has.
+	 * @return the number of cores
+	 */
+	private static int getNumCores() {
+		return Runtime.getRuntime().availableProcessors();
+	}
+
+	/**
+	 * Determines whether or not to use a multi-threaded parser.
+	 * @return true to use a multi-threaded parser, false not to
+	 */
+	private static boolean useMultiThreading() {
+		//TODO add property
+		//return properties.isUseMultiThreading() && getNumCores() > 1;
+		return false;
 	}
 
 	private static String defaultZipFilename() {
@@ -151,6 +177,81 @@ public class OakbotDoclet {
 			writeXmlDocument(document, path);
 		}
 		System.out.println();
+	}
+
+	/**
+	 * Creates the XML files containing the Javadoc information of each class.
+	 * @param fs the ZIP file
+	 * @param rootDoc the Javadoc information
+	 * @throws IOException if there's a problem writing to the ZIP file
+	 */
+	private static void createClassFilesThreaded(FileSystem fs, RootDoc rootDoc) throws IOException {
+		List<ClassDoc> classDocs = new LinkedList<>(Arrays.asList(rootDoc.classes()));
+		BlockingQueue<ParseResult> queue = new LinkedBlockingQueue<>();
+		ProgressPrinter progress = new ProgressPrinter(classDocs.size());
+
+		for (int i = 0; i < getNumCores() - 1; i++) {
+			new ParseThread(classDocs, queue).start();
+		}
+
+		while (true) {
+			ParseResult result;
+			try {
+				result = queue.take();
+			} catch (InterruptedException e) {
+				throw new RuntimeException(e);
+			}
+
+			if (result == ParseResult.END) {
+				break;
+			}
+
+			progress.print(result.classDoc);
+			Path path = fs.getPath(classFilePath(result.classDoc));
+			Files.createDirectories(path.getParent());
+			writeXmlDocument(result.document, path);
+		}
+
+		System.out.println();
+	}
+
+	private static class ParseThread extends Thread {
+		private final List<ClassDoc> classDocs;
+		private final BlockingQueue<ParseResult> queue;
+
+		public ParseThread(List<ClassDoc> classDocs, BlockingQueue<ParseResult> queue) {
+			this.classDocs = classDocs;
+			this.queue = queue;
+			setDaemon(true);
+		}
+
+		@Override
+		public void run() {
+			while (true) {
+				ClassDoc classDoc;
+				synchronized (classDocs) {
+					if (classDocs.isEmpty()) {
+						queue.add(ParseResult.END);
+						return;
+					}
+					classDoc = classDocs.remove(0);
+				}
+
+				Document document = RootDocXmlProcessor.toDocument(classDoc);
+				queue.add(new ParseResult(document, classDoc));
+			}
+		}
+	}
+
+	private static class ParseResult {
+		private static final ParseResult END = new ParseResult(null, null);
+		private final Document document;
+		private final ClassDoc classDoc;
+
+		public ParseResult(Document document, ClassDoc classDoc) {
+			this.document = document;
+			this.classDoc = classDoc;
+		}
 	}
 
 	/**
