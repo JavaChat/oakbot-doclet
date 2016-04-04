@@ -98,7 +98,7 @@ public final class RootDocXmlProcessor {
 		}
 
 		//description
-		String description = toMarkdown(classDoc.inlineTags());
+		String description = toMarkdown(classDoc);
 		Element descriptionElement = document.createElement("description");
 		descriptionElement.setTextContent(description);
 		element.appendChild(descriptionElement);
@@ -136,7 +136,7 @@ public final class RootDocXmlProcessor {
 		}
 
 		//description
-		String description = toMarkdown(constructor.inlineTags());
+		String description = toMarkdown(constructor);
 		Element descriptionElement = document.createElement("description");
 		descriptionElement.setTextContent(description);
 		element.appendChild(descriptionElement);
@@ -185,13 +185,13 @@ public final class RootDocXmlProcessor {
 		MethodDoc overriddenMethod = findOverriddenMethod(method);
 		if (overriddenMethod != null) {
 			if (overriddenMethod.containingClass().isPackagePrivate()) {
-				description = toMarkdown(overriddenMethod.inlineTags());
+				description = toMarkdown(overriddenMethod);
 			} else {
 				element.setAttribute("overrides", methodName(overriddenMethod));
-				description = toMarkdown(method.inlineTags());
+				description = toMarkdown(method);
 			}
 		} else {
-			description = toMarkdown(method.inlineTags());
+			description = toMarkdown(method);
 		}
 		Element descriptionElement = document.createElement("description");
 		descriptionElement.setTextContent(description);
@@ -435,17 +435,17 @@ public final class RootDocXmlProcessor {
 	}
 
 	/**
-	 * Converts a Javadoc description to SO-Chat markdown.
-	 * @param inlineTags the description
+	 * Converts a Javadoc element's description to SO-Chat markdown.
+	 * @param doc the Javadoc element
 	 * @return the markdown
 	 */
-	private static String toMarkdown(Tag inlineTags[]) {
+	private static String toMarkdown(Doc doc) {
 		/*
 		 * Combine all the Tags into a single string, converting Javadoc tags
 		 * (like "@code") into HTML.
 		 */
 		StringBuilder sb = new StringBuilder();
-		for (Tag tag : inlineTags) {
+		for (Tag tag : doc.inlineTags()) {
 			String text = tag.text();
 			switch (tag.name()) {
 			case "@code":
