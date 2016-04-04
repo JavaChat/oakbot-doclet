@@ -222,7 +222,6 @@ public class OakbotDoclet {
 	private static class ProgressPrinter {
 		private final int totalClasses;
 		private int classesParsed = 0;
-		private int prevMessageLength = 0;
 
 		/**
 		 * @param totalClasses the total number of classes being parsed
@@ -240,14 +239,7 @@ public class OakbotDoclet {
 			sb.append("Parsing ").append(++classesParsed).append('/').append(totalClasses);
 			sb.append(" (").append(next.simpleTypeName()).append(')');
 
-			int curMessageLength = sb.length();
-			int spaces = prevMessageLength - curMessageLength;
-			for (int i = 0; i < spaces; i++) {
-				sb.append(' ');
-			}
-			prevMessageLength = curMessageLength;
-
-			System.out.print('\r' + sb.toString());
+			System.out.print("\r\033[K" + sb.toString());
 		}
 	}
 }
