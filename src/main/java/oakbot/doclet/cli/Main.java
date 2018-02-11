@@ -1,5 +1,7 @@
 package oakbot.doclet.cli;
 
+import static oakbot.util.JunkDrawer.WINDOWS_OS;
+
 import java.io.BufferedInputStream;
 import java.io.Console;
 import java.io.IOException;
@@ -275,7 +277,8 @@ public class Main {
 			die("Please set your JAVA_HOME environment variable: export JAVA_HOME=/path/to/jdk");
 		}
 
-		Path javadoc = Paths.get(javaHomeEnv, "bin", "javadoc");
+		String executable = WINDOWS_OS ? "javadoc.exe" : "javadoc";
+		Path javadoc = Paths.get(javaHomeEnv, "bin", executable);
 		if (!Files.exists(javadoc)) {
 			die("JAVA_HOME path is not valid or does not contain a \"javadoc\" executable: " + javaHomeEnv);
 		}
@@ -377,7 +380,17 @@ public class Main {
 		URL urls[] = ((URLClassLoader) (Thread.currentThread().getContextClassLoader())).getURLs();
 		List<Path> paths = new ArrayList<>(urls.length);
 		for (URL url : urls) {
-			Path path = Paths.get(url.getPath());
+			String urlPath = url.getPath();
+			if (WINDOWS_OS) {
+				//example URL: /C:/Users/mikea/OakBot/workspace/oakbot-doclet/target/oakbot-doclet-0.0.4-jar-with-dependencies.jar
+				//@formatter:off
+				urlPath = urlPath
+					.substring(1) //remove the first slash
+					.replace('/', '\\'); //use backslashes
+				//@formatter:on
+			}
+
+			Path path = Paths.get(urlPath);
 			paths.add(path);
 		}
 

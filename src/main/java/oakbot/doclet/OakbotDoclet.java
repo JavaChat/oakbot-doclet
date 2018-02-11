@@ -1,5 +1,6 @@
 package oakbot.doclet;
 
+import static oakbot.util.JunkDrawer.WINDOWS_OS;
 import static oakbot.util.XmlUtils.newDocument;
 
 import java.io.IOException;
@@ -111,7 +112,11 @@ public class OakbotDoclet {
 	 * @throws IOException if there's a problem creating the file
 	 */
 	private static FileSystem createZip(Path file) throws IOException {
-		URI uri = URI.create("jar:file:" + file.toAbsolutePath());
+		String absPath = file.toAbsolutePath().toString();
+		if (WINDOWS_OS) {
+			absPath = '/' + absPath.replace('\\', '/');
+		}
+		URI uri = URI.create("jar:file:" + absPath);
 		Map<String, String> env = new HashMap<>();
 		env.put("create", "true");
 		return FileSystems.newFileSystem(uri, env);
@@ -236,10 +241,29 @@ public class OakbotDoclet {
 		 */
 		public void print(ClassDoc next) {
 			StringBuilder sb = new StringBuilder();
+
+			//clear the line
+			if (WINDOWS_OS) {
+				sb.append("\r");
+			} else {
+				sb.append("\r\033[K");
+			}
+
 			sb.append("Parsing ").append(++classesParsed).append('/').append(totalClasses);
 			sb.append(" (").append(next.simpleTypeName()).append(')');
 
-			System.out.print("\r\033[K" + sb.toString());
+			/*
+			 * Windows does not clear the line, it just moves the cursor to the
+			 * beginning of the line. So, clear the rest of the line with
+			 * spaces.
+			 */
+			if (WINDOWS_OS) {
+				for (int i = sb.length(); i < 80; i++) {
+					sb.append(' ');
+				}
+			}
+
+			System.out.print(sb.toString());
 		}
 	}
 }
