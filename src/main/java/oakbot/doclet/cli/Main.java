@@ -3,9 +3,10 @@ package oakbot.doclet.cli;
 import static oakbot.util.JunkDrawer.WINDOWS_OS;
 
 import java.io.BufferedInputStream;
-import java.io.Console;
+import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.net.HttpURLConnection;
@@ -36,7 +37,7 @@ import oakbot.doclet.OakbotDoclet;
  * @author Michael Angstadt
  */
 public class Main {
-	private static final Console console = System.console();
+	private static final Console console = new Console();
 	private static Path tempDir;
 
 	public static void main(String args[]) throws Exception {
@@ -56,7 +57,7 @@ public class Main {
 		if (arguments.interactive()) {
 			console.printf("Welcome to the OakBot Javadoc Generator.%n");
 			while (true) {
-				String answer = console.readLine("Enter Maven ID or path to source ZIP/JAR/folder: ").trim();
+				String answer = console.readLine("Enter Maven ID or path to source ZIP/JAR/folder: ");
 				if (answer.isEmpty()) {
 					continue;
 				}
@@ -303,7 +304,7 @@ public class Main {
 		message = sb.toString();
 
 		while (true) {
-			String answer = console.readLine(message).trim();
+			String answer = console.readLine(message);
 			if (answer.contains(" ") || answer.contains("\t")) {
 				console.printf("Value cannot contain whitespace.%n");
 				continue;
@@ -319,15 +320,15 @@ public class Main {
 	}
 
 	private static String readLibraryJavadocUrl() {
-		return console.readLine("Library's base javadoc URL (optional): ").trim();
+		return console.readLine("Library's base javadoc URL (optional): ");
 	}
 
 	private static String readLibraryJavadocUrlPattern() {
-		return console.readLine("Library's javadoc URL pattern (optional): ").trim();
+		return console.readLine("Library's javadoc URL pattern (optional): ");
 	}
 
 	private static String readLibraryWebsite() {
-		return console.readLine("Library's website (optional): ").trim();
+		return console.readLine("Library's website (optional): ");
 	}
 
 	private static boolean readPrettyPrint() {
@@ -336,12 +337,12 @@ public class Main {
 	}
 
 	private static List<String> readExcludePackages() {
-		String answer = console.readLine("Enter a comma separated list of packages you want to exclude (optional): ").trim();
+		String answer = console.readLine("Enter a comma separated list of packages you want to exclude (optional): ");
 		return answer.isEmpty() ? Collections.emptyList() : Arrays.asList(answer.split("\\s*,\\s*"));
 	}
 
 	private static String readOutput(String defaultValue) {
-		String answer = console.readLine("Save ZIP file as: [" + defaultValue + "] ").trim();
+		String answer = console.readLine("Save ZIP file as: [" + defaultValue + "] ");
 		return answer.isEmpty() ? defaultValue : answer;
 	}
 
@@ -564,6 +565,28 @@ public class Main {
 				}
 			} catch (IOException e) {
 				//shouldn't be thrown
+			}
+		}
+	}
+
+	/**
+	 * Mimics the {@link java.io.Console} class so that this program can be run
+	 * from Eclipse.
+	 * @author Michael Angstadt
+	 */
+	private static class Console {
+		private final BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
+
+		public void printf(String message, Object... objects) {
+			System.out.printf(message, objects);
+		}
+
+		public String readLine(String message) {
+			System.out.print(message);
+			try {
+				return in.readLine().trim();
+			} catch (IOException e) {
+				throw new RuntimeException(e);
 			}
 		}
 	}
