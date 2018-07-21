@@ -5,7 +5,9 @@ import static oakbot.util.XmlUtils.newDocument;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 import org.jsoup.Jsoup;
@@ -77,8 +79,40 @@ public final class RootDocXmlProcessor {
 			element.setAttribute("modifiers", String.join(" ", modifiers));
 		}
 
-		//super class
+		/*
+		 * If a class's parent is package-private, then the parent class's
+		 * methods are "combined" with the child class's methods in the public
+		 * Javadocs, making it look as if the parent class's methods are defined
+		 * in the child class. In addition, package-private parent classes are
+		 * not even listed in the public Javadocs.
+		 * 
+		 * For example, the "StringBuilder" class extends the package-private
+		 * class "AbstractStringBuilder". "AbstractStringBuilder" is not listed
+		 * in the public Javadocs. As a consequence, it looks as if the
+		 * "capacity" method is part of the "StringBuilder" class, but in
+		 * reality, that method is defined in the "AbstractStringBuilder" class.
+		 */
+		Map<String, MethodDoc> methodsOfPackagePrivateSuperClasses = new HashMap<>();
 		ClassDoc superClass = classDoc.superclass();
+		while (superClass != null && superClass.isPackagePrivate()) {
+			for (MethodDoc method : superClass.methods()) {
+				/*
+				 * Ignore methods that aren't accessible to the child class.
+				 */
+				if (method.isPrivate() || method.isPackagePrivate()) {
+					continue;
+				}
+
+				String sig = method.name() + method.signature();
+				methodsOfPackagePrivateSuperClasses.putIfAbsent(sig, method);
+			}
+
+			/*
+			 * Continue up the hierarchy, stopping when we encounter a public
+			 * class.
+			 */
+			superClass = superClass.superclass();
+		}
 		if (superClass != null) {
 			applyClassNameAttribute("extends", superClass, element);
 		}
@@ -110,6 +144,18 @@ public final class RootDocXmlProcessor {
 
 		//methods
 		for (MethodDoc method : classDoc.methods()) {
+			element.appendChild(parseMethod(method));
+
+			/*
+			 * The child class's Javadocs should take precedence over any
+			 * Javadocs defined in the parent class.
+			 */
+			if (!methodsOfPackagePrivateSuperClasses.isEmpty()) {
+				String sig = method.name() + method.signature();
+				methodsOfPackagePrivateSuperClasses.remove(sig);
+			}
+		}
+		for (MethodDoc method : methodsOfPackagePrivateSuperClasses.values()) {
 			element.appendChild(parseMethod(method));
 		}
 
