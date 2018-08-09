@@ -130,6 +130,21 @@ public class DescriptionNodeVisitorTest {
 		assertEquals(expected, actual);
 	}
 
+	/**
+	 * @see "https://docs.oracle.com/javase/8/docs/api/java/lang/Double.html#toString-double-"
+	 */
+	@Test
+	public void lists() {
+		String html = "List test: <ul><li>foo\n<li>bar<ul><li>sublist</ul></ul> <ol><li>foo\n<li>bar<ol><li>sublist</ol></ol>";
+		Document document = Jsoup.parse(html);
+		DescriptionNodeVisitor visitor = new DescriptionNodeVisitor();
+		document.traverse(visitor);
+
+		String expected = "List test:\n\nfoo bar\n\nsublist\n\nfoo bar\n\nsublist";
+		String actual = visitor.getDescription();
+		assertEquals(expected, actual);
+	}
+
 	@Test
 	public void superscript() {
 		String html = "Superscript test: 10<sup>2</sup>";

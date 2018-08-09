@@ -84,6 +84,10 @@ public class DescriptionNodeVisitor implements NodeVisitor {
 			inPre = true;
 			cb.nl().nl();
 			break;
+		case "ul":
+		case "ol":
+			cb.nl().nl();
+			break;
 		case "h1":
 		case "h2":
 		case "h3":
@@ -184,6 +188,10 @@ public class DescriptionNodeVisitor implements NodeVisitor {
 			handlePreText();
 			cb.nl();
 			preSb.setLength(0);
+			break;
+		case "ul":
+		case "ol":
+			cb.nl();
 			break;
 		case "h1":
 		case "h2":
