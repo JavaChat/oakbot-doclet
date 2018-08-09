@@ -5,12 +5,12 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.regex.Pattern;
 
-import oakbot.util.ChatBuilder;
-
 import org.jsoup.nodes.Element;
 import org.jsoup.nodes.Node;
 import org.jsoup.nodes.TextNode;
 import org.jsoup.select.NodeVisitor;
+
+import oakbot.util.ChatBuilder;
 
 /**
  * Iterates through a class's or method's Javadoc description, converting the
@@ -91,6 +91,12 @@ public class DescriptionNodeVisitor implements NodeVisitor {
 		case "h5":
 		case "h6":
 			cb.nl().nl().bold();
+			break;
+		case "sup":
+			cb.append('^');
+			break;
+		case "sub":
+			cb.append('[');
 			break;
 		case "#text":
 			TextNode text = (TextNode) node;
@@ -186,6 +192,9 @@ public class DescriptionNodeVisitor implements NodeVisitor {
 		case "h5":
 		case "h6":
 			cb.append(':').bold().append(' ');
+			break;
+		case "sub":
+			cb.append(']');
 			break;
 		}
 	}

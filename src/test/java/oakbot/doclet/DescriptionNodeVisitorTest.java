@@ -129,7 +129,31 @@ public class DescriptionNodeVisitorTest {
 		String actual = visitor.getDescription();
 		assertEquals(expected, actual);
 	}
-	
+
+	@Test
+	public void superscript() {
+		String html = "Superscript test: 10<sup>2</sup>";
+		Document document = Jsoup.parse(html);
+		DescriptionNodeVisitor visitor = new DescriptionNodeVisitor();
+		document.traverse(visitor);
+
+		String expected = "Superscript test: 10^2";
+		String actual = visitor.getDescription();
+		assertEquals(expected, actual);
+	}
+
+	@Test
+	public void subscript() {
+		String html = "Subscript test: <sub>1</sub>";
+		Document document = Jsoup.parse(html);
+		DescriptionNodeVisitor visitor = new DescriptionNodeVisitor();
+		document.traverse(visitor);
+
+		String expected = "Subscript test: [1]";
+		String actual = visitor.getDescription();
+		assertEquals(expected, actual);
+	}
+
 	@Test
 	public void escape() {
 		String html = "Escape test: one*two[three]`four_five";
@@ -141,7 +165,7 @@ public class DescriptionNodeVisitorTest {
 		String actual = visitor.getDescription();
 		assertEquals(expected, actual);
 	}
-	
+
 	@Test
 	public void special_chars_in_code_tag() {
 		String html = "<code>one*two</code>";
