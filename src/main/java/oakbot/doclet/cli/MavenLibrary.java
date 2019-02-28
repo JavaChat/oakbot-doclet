@@ -18,7 +18,7 @@ public class MavenLibrary {
 	public static MavenLibrary parse(String id) {
 		String split[] = id.split(":");
 		if (split.length != 3) {
-			throw new IllegalArgumentException("Must be in the format: \"groupId:artifactId:version\"");
+			throw new IllegalArgumentException("Maven coordinates must be in the format: \"groupId:artifactId:version\"");
 		}
 		return new MavenLibrary(split[0], split[1], split[2]);
 	}
