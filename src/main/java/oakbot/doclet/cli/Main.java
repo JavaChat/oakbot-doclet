@@ -16,7 +16,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 import oakbot.doclet.ConfigProperties;
@@ -88,89 +87,25 @@ public class Main {
 				systemProperties.setProjectUrl(inputParameters.getWebsite());
 			}
 
-			List<String> command = new JavadocCommandBuilder(javadocExe) //@formatter:off
-				.doclet(OakbotDoclet.class.getName())
-				.docletClasspath(getClasspath())
-				.source(sourceDir.toString())
-				.sourceEncoding("UTF-8")
-				.sourceDependenciesClasspath(buildClasspath(dependencyJars))
-				.includePackages(getSubpackages(sourceDir))
-				.excludePackages(inputParameters.getExcludePackages())
-				.systemProperties(systemProperties)
-				.maxHeapSize(1024)
-			.build(); //@formatter:on
+			JavadocCommandBuilder builder = new JavadocCommandBuilder(javadocExe) //@formatter:off
+			.doclet(OakbotDoclet.class.getName())
+			.docletClasspath(getClasspath())
+			.source(sourceDir.toString())
+			.sourceEncoding("UTF-8")
+			.includePackages(getSubpackages(sourceDir))
+			.excludePackages(inputParameters.getExcludePackages())
+			.systemProperties(systemProperties)
+			.maxHeapSize(1024); //@formatter:on
 
-			runJavadoc(command, arguments.verbose());
+			if (!dependencyJars.isEmpty()) {
+				builder.sourceDependenciesClasspath(buildClasspath(dependencyJars));
+			}
+
+			runJavadoc(builder.build(), arguments.verbose());
 		} finally {
 			console.printf("Cleaning up...");
 			Files2.deleteDirectory(tempDir);
 			console.printf("done.%n");
-		}
-	}
-
-	private static class JavadocCommandBuilder {
-		private final List<String> command = new ArrayList<>();
-
-		public JavadocCommandBuilder(String javadocExe) {
-			command.add(javadocExe);
-		}
-
-		public JavadocCommandBuilder doclet(String className) {
-			return param("doclet", className);
-		}
-
-		public JavadocCommandBuilder docletClasspath(String classpath) {
-			return param("docletpath", classpath);
-		}
-
-		public JavadocCommandBuilder source(String sourcepath) {
-			return param("sourcepath", sourcepath);
-		}
-
-		public JavadocCommandBuilder sourceEncoding(String charset) {
-			return param("encoding", charset);
-		}
-
-		public JavadocCommandBuilder sourceDependenciesClasspath(String classpath) {
-			return param("classpath", classpath);
-		}
-
-		public JavadocCommandBuilder includePackages(List<String> subpackages) {
-			for (String subpackage : subpackages) {
-				param("subpackages", subpackage);
-			}
-			return this;
-		}
-
-		public JavadocCommandBuilder excludePackages(List<String> subpackages) {
-			for (String subpackage : subpackages) {
-				param("exclude", subpackage);
-			}
-			return this;
-		}
-
-		public JavadocCommandBuilder systemProperties(Iterable<Map.Entry<String, String>> it) {
-			for (Map.Entry<String, String> entry : it) {
-				command.add("-J-D" + entry.getKey() + "=" + entry.getValue());
-			}
-			return this;
-		}
-
-		public JavadocCommandBuilder maxHeapSize(int mb) {
-			command.add("-J-Xmx" + mb + "m");
-			return this;
-		}
-
-		public List<String> build() {
-			return command;
-		}
-
-		private JavadocCommandBuilder param(String name, String value) {
-			if (!value.isEmpty()) {
-				command.add("-" + name);
-				command.add(value);
-			}
-			return this;
 		}
 	}
 
