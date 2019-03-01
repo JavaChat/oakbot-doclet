@@ -1,8 +1,6 @@
 package oakbot.doclet.cli;
 
 import static oakbot.util.JunkDrawer.WINDOWS_OS;
-import static oakbot.util.JunkDrawer.rmdirRecursive;
-import static oakbot.util.JunkDrawer.unzip;
 
 import java.io.BufferedInputStream;
 import java.io.IOException;
@@ -24,6 +22,7 @@ import java.util.stream.Collectors;
 import oakbot.doclet.ConfigProperties;
 import oakbot.doclet.OakbotDoclet;
 import oakbot.util.Downloader;
+import oakbot.util.Files2;
 
 /**
  * A command-line interface for generating a Javadoc ZIP file for OakBot.
@@ -104,7 +103,7 @@ public class Main {
 			runJavadoc(command, arguments.verbose());
 		} finally {
 			console.printf("Cleaning up...");
-			rmdirRecursive(tempDir);
+			Files2.deleteDirectory(tempDir);
 			console.printf("done.%n");
 		}
 	}
@@ -299,7 +298,7 @@ public class Main {
 
 		Path dir = tempDir.resolve("src");
 		Files.createDirectory(dir);
-		unzip(dir, sourceJar);
+		Files2.unzip(dir, sourceJar);
 
 		console.printf("done.%n");
 		return dir;
