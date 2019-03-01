@@ -42,7 +42,7 @@ public class Downloader {
 	 * @throws IOException if there's a problem downloading the file
 	 */
 	public void start() throws IOException {
-		HttpURLConnection connection = (HttpURLConnection) new URL(url).openConnection();
+		HttpURLConnection connection = getConnection(url);
 		try (InputStream in = new BufferedInputStream(connection.getInputStream())) {
 			if (progress == null) {
 				Files.copy(in, saveTo);
@@ -61,6 +61,16 @@ public class Downloader {
 				}
 			}
 		}
+	}
+
+	/**
+	 * Opens an HTTP connection to the file (for unit testing).
+	 * @param url the URL
+	 * @return the connection
+	 * @throws IOException if there's a problem establishing the connection
+	 */
+	HttpURLConnection getConnection(String url) throws IOException {
+		return (HttpURLConnection) new URL(url).openConnection();
 	}
 
 	/**
