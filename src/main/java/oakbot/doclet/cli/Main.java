@@ -2,10 +2,7 @@ package oakbot.doclet.cli;
 
 import static oakbot.util.JunkDrawer.WINDOWS_OS;
 
-import java.io.BufferedInputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.PrintStream;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.DirectoryStream;
@@ -111,14 +108,14 @@ public class Main {
 
 	private static void runJavadoc(List<String> command, boolean verbose) throws IOException, InterruptedException {
 		if (verbose) {
-			console.printf("Starting doclet: " + command + "%n");
+			console.printf("Starting doclet: %s%n", command);
 		} else {
 			console.printf("Starting doclet...%n");
 		}
 
 		ProcessBuilder builder = new ProcessBuilder(command);
+		builder.inheritIO();
 		Process process = builder.start();
-		pipeOutput(process);
 		process.waitFor();
 	}
 
@@ -133,10 +130,10 @@ public class Main {
 		//use Maven to perform the dependency resolution
 		String executable = WINDOWS_OS ? "mvn.cmd" : "mvn";
 		ProcessBuilder builder = new ProcessBuilder(executable, "dependency:copy-dependencies");
+		builder.inheritIO();
 		builder.directory(pom.getParent().toFile());
 
 		Process process = builder.start();
-		pipeOutput(process);
 		int exitValue = process.waitFor();
 		if (exitValue != 0) {
 			throw new RuntimeException("Maven processed failed.");
@@ -307,41 +304,5 @@ public class Main {
 	private static void die(String message) {
 		System.err.println(message);
 		System.exit(1);
-	}
-
-	/**
-	 * Pipes the output of a process to this program's stdout and stderr
-	 * streams.
-	 * @param process the process
-	 */
-	private static void pipeOutput(Process process) {
-		//TODO not thread safe, messages get jumbled
-		PipeThread stdout = new PipeThread(process.getInputStream(), System.out);
-		PipeThread stderr = new PipeThread(process.getErrorStream(), System.err);
-		stdout.start();
-		stderr.start();
-	}
-
-	private static class PipeThread extends Thread {
-		private final InputStream in;
-		private final PrintStream out;
-
-		public PipeThread(InputStream in, PrintStream out) {
-			this.in = in;
-			this.out = out;
-			setDaemon(true);
-		}
-
-		@Override
-		public void run() {
-			try (InputStream in = new BufferedInputStream(this.in)) {
-				int read;
-				while ((read = in.read()) != -1) {
-					out.print((char) read);
-				}
-			} catch (IOException ignore) {
-				//shouldn't be thrown
-			}
-		}
 	}
 }
